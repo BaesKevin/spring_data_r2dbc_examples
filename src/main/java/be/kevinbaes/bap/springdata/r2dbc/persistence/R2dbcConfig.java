@@ -6,22 +6,22 @@ import io.r2dbc.spi.ConnectionFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration;
-import org.springframework.data.r2dbc.function.DatabaseClient;
-import org.springframework.data.r2dbc.function.TransactionalDatabaseClient;
+import org.springframework.data.r2dbc.connectionfactory.R2dbcTransactionManager;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
+import org.springframework.transaction.ReactiveTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
+@EnableTransactionManagement
 @EnableR2dbcRepositories
 @Configuration
 public class R2dbcConfig extends AbstractR2dbcConfiguration {
 
+    /**
+     * The reactive equivalent of PlatformTransactionManager
+     */
     @Bean
-    public DatabaseClient databaseClient() {
-        return DatabaseClient.create(connectionFactory());
-    }
-
-    @Bean
-    public TransactionalDatabaseClient transactionalDatabaseClient() {
-        return TransactionalDatabaseClient.create(connectionFactory());
+    ReactiveTransactionManager transactionManager(ConnectionFactory connectionFactory) {
+        return new R2dbcTransactionManager(connectionFactory);
     }
 
     @Override

@@ -1,26 +1,35 @@
 package be.kevinbaes.bap.springdata.r2dbc.persistence.repository;
 
+import be.kevinbaes.bap.springdata.r2dbc.Application;
 import be.kevinbaes.bap.springdata.r2dbc.domain.Goal;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.r2dbc.function.TransactionalDatabaseClient;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.data.r2dbc.core.DatabaseClient;
+import org.springframework.transaction.ReactiveTransactionManager;
+import org.springframework.transaction.reactive.TransactionalOperator;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import static org.junit.Assert.assertTrue;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
+/**
+ * @Transaction currently doesn't work in tests with SpringRunner because it looks for PlatformTransactionManager
+ */
 public class ManualGoalRepositoryIntegrationTest {
 
-  @Autowired
-  private ManualGoalRepository goalRepository;
+  private final ManualGoalRepository goalRepository;
+  private final DatabaseClient databaseClient;
+  private final ReactiveTransactionManager transactionManager;
 
-  @Autowired
-  private TransactionalDatabaseClient databaseClient;
+  public ManualGoalRepositoryIntegrationTest() {
+    ApplicationContext ctx = new AnnotationConfigApplicationContext(Application.class);
+
+    this.goalRepository = ctx.getBean(ManualGoalRepository.class);
+    this.databaseClient = ctx.getBean(DatabaseClient.class);
+    this.transactionManager = ctx.getBean(ReactiveTransactionManager.class);
+  }
 
   @Test
   public void findAllTest() {
@@ -45,40 +54,41 @@ public class ManualGoalRepositoryIntegrationTest {
 
   @Test
   public void insertInTransactionRollback() {
+    TransactionalOperator operator = TransactionalOperator.create(transactionManager);
+
     Mono<Integer> insert = goalRepository.insert("insert in transaction 1");
     Mono<Integer> insert2 = goalRepository.insert("insert in transaction 2");
-    Mono<Integer> insert3 = goalRepository.insert(null);
+    Mono<Integer> insert3 = goalRepository.insert("goal3")
+        .concatWith(Flux.error(new IllegalArgumentException("can't use goal3")))
+        .then(Mono.just(1));
 
-    Mono<Void> insertInTransaction = databaseClient
-        .beginTransaction()
-        .then(insert)
+    Mono<Void> insertInTransaction =
+        insert
         .then(insert2)
         .then(insert3)
-        .then(databaseClient.commitTransaction());
-
-    insertInTransaction = databaseClient.enableTransactionSynchronization(insertInTransaction);
+        .as(operator::transactional)
+        .then();
 
     StepVerifier
         .create(insertInTransaction)
         .verifyError();
   }
 
-
   @Test
   public void insertInTransactionCommit() {
-    Mono<Integer> insert = goalRepository.insert("insert in transaction 1");
-    Mono<Integer> insert2 = goalRepository.insert("insert in transaction 2");
-    Mono<Integer> insert3 = goalRepository.insert("insert in transaction 3");
+    TransactionalOperator operator = TransactionalOperator.create(transactionManager);
 
-    Mono<Void> insertInTransaction = databaseClient
-        .beginTransaction()
-        .then(insert)
+    Mono<Integer> insert = goalRepository.insert("goal1");
+    Mono<Integer> insert2 = goalRepository.insert("goal2");
+    Mono<Integer> insert3 = goalRepository.insert("goal3");
+
+    Mono<Void> insertInTransaction =
+        insert
         .then(insert2)
         .then(insert3)
+        .as(operator::transactional)
         .doOnEach(System.out::println)
-        .then(databaseClient.commitTransaction());
-
-    insertInTransaction = databaseClient.enableTransactionSynchronization(insertInTransaction);
+        .then();
 
     StepVerifier
         .create(insertInTransaction)
@@ -88,7 +98,7 @@ public class ManualGoalRepositoryIntegrationTest {
 
   @Test
   public void save() {
-    Goal goal = new Goal(0, "some goal");
+    Goal goal = new Goal("some goal");
 
     Mono<Goal> save = goalRepository.save(goal);
 
