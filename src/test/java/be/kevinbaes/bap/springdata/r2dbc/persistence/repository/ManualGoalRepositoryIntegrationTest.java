@@ -2,6 +2,7 @@ package be.kevinbaes.bap.springdata.r2dbc.persistence.repository;
 
 import be.kevinbaes.bap.springdata.r2dbc.Application;
 import be.kevinbaes.bap.springdata.r2dbc.domain.Goal;
+import org.junit.Before;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -29,6 +30,11 @@ public class ManualGoalRepositoryIntegrationTest {
     this.goalRepository = ctx.getBean(ManualGoalRepository.class);
     this.databaseClient = ctx.getBean(DatabaseClient.class);
     this.transactionManager = ctx.getBean(ReactiveTransactionManager.class);
+  }
+
+  @Before
+  public void before() {
+    this.databaseClient.execute().sql("delete from goal;").fetch().all().blockLast();
   }
 
   @Test
@@ -106,5 +112,26 @@ public class ManualGoalRepositoryIntegrationTest {
         .create(save)
         .assertNext(newGoal -> assertTrue(newGoal.getId() > 0))
         .verifyComplete();
+  }
+
+  @Test
+  public void manyConcurrentQueriesAsTransactions() {
+    TransactionalOperator operator = TransactionalOperator.create(transactionManager);
+
+    Mono<Void> saves = Flux.range(1, 10000)
+        .flatMap(i -> goalRepository.save(new Goal("goal" + i)).as(operator::transactional))
+        .then();
+
+    StepVerifier.create(saves).verifyComplete();
+  }
+
+
+  @Test
+  public void manyConcurrentQueriesNoTransactions() {
+    Mono<Void> saves = Flux.range(1, 100)
+        .flatMap(i -> goalRepository.save(new Goal("goal" + i)))
+        .then();
+
+    StepVerifier.create(saves).verifyComplete();
   }
 }

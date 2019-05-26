@@ -2,7 +2,7 @@ package be.kevinbaes.bap.springdata.r2dbc.service;
 
 import be.kevinbaes.bap.springdata.r2dbc.Application;
 import be.kevinbaes.bap.springdata.r2dbc.domain.Goal;
-import be.kevinbaes.bap.springdata.r2dbc.persistence.repository.ManualGoalRepository;
+import be.kevinbaes.bap.springdata.r2dbc.persistence.repository.GoalRepository;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
@@ -18,7 +18,7 @@ public class TransactionalServiceTest {
   private final ReactiveTransactionManager transactionManager;
   private final TransactionalService transactionalService;
   private final DatabaseClient databaseClient;
-  private final ManualGoalRepository goalRepository;
+  private final GoalRepository goalRepository;
 
 
   public TransactionalServiceTest() {
@@ -26,7 +26,7 @@ public class TransactionalServiceTest {
     this.transactionManager = ctx.getBean(ReactiveTransactionManager.class);
     this.transactionalService = ctx.getBean(TransactionalService.class);
     this.databaseClient = ctx.getBean(DatabaseClient.class);
-    this.goalRepository = ctx.getBean(ManualGoalRepository.class);
+    this.goalRepository = ctx.getBean(GoalRepository.class);
   }
 
   @Before

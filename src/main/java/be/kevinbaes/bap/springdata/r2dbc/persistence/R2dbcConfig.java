@@ -1,8 +1,8 @@
 package be.kevinbaes.bap.springdata.r2dbc.persistence;
 
-import io.r2dbc.postgresql.PostgresqlConnectionConfiguration;
-import io.r2dbc.postgresql.PostgresqlConnectionFactory;
+import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
+import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration;
@@ -10,6 +10,8 @@ import org.springframework.data.r2dbc.connectionfactory.R2dbcTransactionManager;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import org.springframework.transaction.ReactiveTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+import static io.r2dbc.spi.ConnectionFactoryOptions.*;
 
 @EnableTransactionManagement
 @EnableR2dbcRepositories
@@ -27,14 +29,14 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
     @Override
     @Bean
     public ConnectionFactory connectionFactory() {
-        return new PostgresqlConnectionFactory(
-                PostgresqlConnectionConfiguration.builder()
-                    .host("localhost")
-                    .port(5432)
-                    .database("postgres")
-                    .username("postgres")
-                    .password("postgres")
-                    .build()
-        );
+        return ConnectionFactories.get(ConnectionFactoryOptions.builder()
+            .option(DRIVER, "pool")
+            .option(PROTOCOL, "postgresql") // driver identifier, PROTOCOL is delegated as DRIVER by the pool.
+            .option(HOST, "localhost")
+            .option(PORT, 5432)
+            .option(USER, "postgres")
+            .option(PASSWORD, "postgres")
+            .option(DATABASE, "postgres")
+            .build());
     }
 }

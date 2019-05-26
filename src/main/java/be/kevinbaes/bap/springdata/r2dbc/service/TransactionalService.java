@@ -1,6 +1,8 @@
 package be.kevinbaes.bap.springdata.r2dbc.service;
 
-import be.kevinbaes.bap.springdata.r2dbc.persistence.repository.ManualGoalRepository;
+import be.kevinbaes.bap.springdata.r2dbc.domain.FrownedUponException;
+import be.kevinbaes.bap.springdata.r2dbc.domain.Goal;
+import be.kevinbaes.bap.springdata.r2dbc.persistence.repository.GoalRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,7 +12,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class TransactionalService {
 
-  private final ManualGoalRepository manualGoalRepository;
+  private final GoalRepository goalRepository;
 
   @Transactional
   public Mono<Void> saveAll(String... names) {
@@ -18,9 +20,9 @@ public class TransactionalService {
 
     for(String name : names) {
       if(name.equals("start doing drugs")) {
-        complete = complete.then(Mono.error(new IllegalArgumentException("The goal '" + name + "' is frowned upon")));
+        complete = complete.then(Mono.error(new FrownedUponException("The goal '" + name + "' is frowned upon")));
       } else {
-        complete = complete.then(manualGoalRepository.insert(name).then());
+        complete = complete.then(goalRepository.save(new Goal(name)).then());
       }
     }
 
